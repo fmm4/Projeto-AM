@@ -88,37 +88,89 @@ def main():
     allSamples = toClassList(matrix)
     nOfFolds = 10
     dividedKSamples = subpart(nOfFolds,allSamples)
+    # a,b,c = mean_confidence_interval([1.0,2.0,3.0,4.0,5.0,6.0])
     mlpRes = []
     svmRes = []
+    # Friedman Table
+    # Primeiro resultado associado ao teste de MLP, segundo ao de SVM
+    setTestTable = []
+    #########FRIEDMAN###########
     for l in range(len(dividedKSamples)):
         lrning, testing = getFold(l,dividedKSamples)
         new = [i[:-1] for i in lrning]
         test = [[i[-1]] for i in lrning]
+        print(estratif(lrning))
         # MLP
-        net = nl.net.newff([[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1]],[9,2,1])
-        err = net.train(new,test,show=30)
+        net = nl.net.newff([[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1],[-1,1]],[6,1])
+        err = net.train(new,test,epochs=500,show=30,goal=0.05)
         fMLP = net.sim([i[:-1] for i in testing])
         resMLP = normalize(fMLP)
         # SVM
         clf = svm.SVC()
-        clf.fit(new, [i[-1] for i in cnj])
+        clf.fit(new, [i[-1] for i in lrning])
         resSvm = clf.predict([i[:-1] for i in testing])
-        mlpRes.append(getAccuracy(cnj, resMLP))
-        svmRes.append(getAccuracy(cnj,resSvm))
+        resultMLP = getAccuracy(testing,resMLP)
+        resultSVM = getAccuracy(testing,resSvm)
+        mlpRes.append(resultMLP)
+        svmRes.append(resultSVM)
+        #########FRIEDMAN#########
+        if(resultMLP==resultSVM):
+            setTestTable.append([1.5,1.5])
+        elif(resultMLP>resultSVM):
+            setTestTable.append([1,2])
+        else:
+            setTestTable.append([2,1])
+        ##########FRIEDMAN##########
         print('Teste (MLP:{0} ||'.format(mlpRes[-1])+'SVM:{0})'.format(svmRes[-1]))
     finResMLP = sum(mlpRes)/len(mlpRes)
     finResSVM = sum(svmRes)/len(svmRes)
     icResMLP,what,isd = mean_confidence_interval(mlpRes)
     icResSVM,whate,isde = mean_confidence_interval(svmRes)
+    ########FRIEDMAN########
+    meanRankMLP = sum([i[0] for i in setTestTable])/len(setTestTable)
+    meanRankSVM = sum([i[1] for i in setTestTable])/len(setTestTable)
+    print('Media dos ranks MLP: {0} de {1}'.format(meanRankMLP,[i[0] for i in setTestTable]))
+    print('Media dos ranks SVM: {0} de {1}'.format(meanRankSVM,[i[1] for i in setTestTable]))
+    Xf = testStatistic(10,2,[meanRankMLP,meanRankSVM])
+    friedResult = Ff(10,2,Xf)
+    print('Xf: {0}'.format(Xf))
+    #Teste F
+    alpha = 0.05
+    valor_critico = scipy.stats.f.cdf(1-alpha,1,9)
+    if(friedResult>valor_critico):
+        print('rej, {0} > {1}'.format(friedResult,valor_critico))
+        #Rejeita hipotese nula. Os dois sao diferentes.
+        #Nemenyi
+    else:
+        print('rej, {0} <= {1}'.format(friedResult,valor_critico))
+        #Aceita hipotese nula. Os dois classificadores tem a mesma media.
+    ########FRIEDMAN########
     print('Estimativa pontual de MLP: {0}'.format(1-finResMLP/100))
     print('Estimativa pontual de SVM: {0}'.format(1-finResSVM/100))
     print('Intervalo de Conf. de MLP: {0} e {1}'.format(what,isd))
     print('Intervalo de Conf. de SVM: {0} e {1}'.format(whate,isde))
 
 def getFold(n,samples):
-    learn = samples[:n]+samples[n+1:]
+    learning = samples[:n]+samples[n+1:]
+    learn = []
+    for i in learning:
+        for l in i:
+            learn.append(l)
     test = samples[n]
     return learn, test
+
+###########FRIEDMAN#############
+#Computa as estatisticas de teste
+def testStatistic(N,k,rankMeanTable):
+    value1 = (12*N)/(k*(k+1))
+    value2 = 0
+    for i in rankMeanTable:
+        value2 = value2 + (i - (k*pow((k+1),2)/4))
+    return value1*value2 
+
+def Ff(N,k,Xf):
+    return ((N-1)*Xf)/(N*(k-1)-Xf)
+####################
 
 def subpart(n,samples):
     trainSize = int(len(samples) * (1/n))
@@ -148,7 +200,7 @@ def mean_confidence_interval(data, confidence=0.95):
     a = 1.0*np.array(data)
     n = len(a)
     m, se = np.mean(a), scipy.stats.sem(a)
-    h = se * sp.stats.t._ppf((1+confidence)/2., n-1)
+    h = se * sp.stats.t.ppf((1+confidence)/2., n - 1)
     return m, m-h, m+h
 
 def estratif(samples):
@@ -182,36 +234,6 @@ def summarizeByClass(dataset):
     for classValue, instances in separated.items():
         summaries[classValue] = summarize(instances)
     return summaries
-
-def calculateKNN(trnSamples,inputVector,k):
-    dissimMatrix = []
-    for i in trnSamples:
-        dissimMatrix.append([dissimilarity(i,inputVector),i[-1]])
-    dissimMatrix = sorted(dissimMatrix, key=lambda matrix:matrix[0])
-    kVizinhosEscolhidos = []
-    for i in range(0,(k-1)):
-        kVizinhosEscolhidos.append(dissimMatrix[i])
-    votosP = 0
-    votosN = 0
-    for i in kVizinhosEscolhidos:
-        if i[-1] == 0:
-            votosN = votosN + 1
-        elif i[-1] == 1:
-            votosP = votosP + 1
-    votos = votosP - votosN
-    posteriori = [(votosP/len(kVizinhosEscolhidos)),(votosN/len(kVizinhosEscolhidos))]
-    return votos, posteriori
-
-
-
-def predict(trnSamples, inputVector,k):
-    probabilities,posteriori = calculateKNN(trnSamples, inputVector,k)
-    bestLabel = None
-    if probabilities > 0:
-        bestLabel = 1
-    else:
-        bestLabel = 0
-    return bestLabel, posteriori
 
 def getPredictions(trnSamples, testSet,k):
     predictions = []
