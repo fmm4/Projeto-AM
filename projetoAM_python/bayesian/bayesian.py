@@ -7,14 +7,11 @@ import itertools
 
 def calculateProbability(type,numbers,slot):
     if (type == 'P'):
-        # exponent = math.exp((x*(x+1))/2)
-        return sum((x[slot]*x[slot]+1)/2 for x in numbers)/len(numbers)   
+        return sum((x[slot]*(x[slot]+1))/2 for x in numbers)/len(numbers)   
     elif (type == 'Q'):
-        # exponent = math.exp((x*(x+1))/2)
         return sum((1-pow(x[slot],2)) for x in numbers)/len(numbers)
     elif (type == 'R'):
-        # exponent = math.exp((x*(x+1))/2)
-        return sum((x[slot]*x[slot]-1)/2 for x in numbers)/len(numbers)
+        return sum((x[slot]*(x[slot]-1))/2 for x in numbers)/len(numbers)
 
 def calcPosterior(numbers,p,q,r):
     val = 1
@@ -84,8 +81,6 @@ def main():
     accuracy = getAccuracy(tstSamples,result)
     print('Acruacia: {0}'.format(accuracy))
 
-    time.sleep(99)
-
 def getAccuracy(testSet, predictions):
     correct = 0
     for x in range(len(testSet)):
@@ -103,9 +98,9 @@ def summarizeByClass(dataset):
 def calculateClassProbabilities(summaries,inputVector):
     varsum = 0
     for i in summaries:
-        varsum += i['prior']*calcPosterior(inputVector,i['p'],i['q'],i['r'])
-    posiProb = summaries[0]['prior']*calcPosterior(inputVector,summaries[0]['p'],summaries[0]['q'],summaries[0]['r'])/varsum
-    negProb = summaries[1]['prior']*calcPosterior(inputVector,summaries[1]['p'],summaries[1]['q'],summaries[1]['r'])/varsum
+        varsum += i['prior']*calcConditional(inputVector,i['p'],i['q'],i['r'])
+    posiProb = (summaries[0]['prior']*calcConditional(inputVector,summaries[0]['p'],summaries[0]['q'],summaries[0]['r']))/varsum
+    negProb = (summaries[1]['prior']*calcConditional(inputVector,summaries[1]['p'],summaries[1]['q'],summaries[1]['r']))/varsum
     return {1:posiProb,0:negProb}    
 
 def predict(summaries, inputVector):

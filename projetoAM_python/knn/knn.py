@@ -82,7 +82,7 @@ def main():
     trnSamples = toClassList(cnjTreinamento)
     tstSamples = toClassList(cnjTeste)
     trnSampleSep = separateByClass(trnSamples)
-    kVizi = 91 #K-vizinhos IMPAR.
+    kVizi = 5 #K-vizinhos IMPAR.
     predictions,probPost = getPredictions(trnSamples,tstSamples,kVizi)
     acruacia = getAccuracy(tstSamples,predictions)
     print('{0}'.format(acruacia))
